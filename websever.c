@@ -42,7 +42,7 @@ void process_trans(int fd)
 	rio_readlineb(&rio,buf,MAXLINE);
 	sscanf(buf,"%s %s %s",method,uri,version);
 	if(strcasecmp(method,"GET")){
-		error_request(fd,method,"501","Not Implemented","web does not implement this method");
+		error_request(fd,method,"501","Not Implemented","Web does not implement this method");
 		return;
 	}
 	read_requeshdrs(&rio);
@@ -54,19 +54,19 @@ void process_trans(int fd)
 		parse_dynamic_uri(uri,filename,cgisrgs);
 
 	if(stat(filename,&sbuf)<0){
-		error_request(fd,filename,"404","Not Found","web could not find this find");
+		error_request(fd,filename,"404","Not Found","Web could not find this find");
 		return;
 	}
 
 	if(static_flag){
 		if(!(S_ISREG(sbuf.st_mode))||!(S_IRUSR & sbuf.st_mode)){
-			error_request(fd,filename,"403","Forbidden","web is not permtted to read the file");
+			error_request(fd,filename,"403","Forbidden","Web is not permtted to read the file");
 			return;
 		}
 		feed_static(fd,filename,sbuf.st_size);
 	}else{
 		if(!(S_ISREG(sbuf.st_mode))||!(S_IXUSR &sbuf.st_mode)){
-			error_request(fd,filename,"403","Forbidden","web could not run the CGI program");
+			error_request(fd,filename,"403","Forbidden","Web could not run the CGI program");
 			return;
 		}
 		feed_static(fd,filename,cgiargs);
