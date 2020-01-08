@@ -167,3 +167,31 @@ void get_filetype(char *filename,char *filetype)
 	else
 		strcpy(filetype,"text/html");
 }
+
+void feed_dynamic(int fd,char *cgiargs)
+{
+	char buf[MAXLINE],*emptylist[]={ NULL };
+	int pfd[2];
+
+	sprintf(buf,"HTTP/1.0 200 OK\r\n");
+	rio_writen(fd,buf,strlne(buf));
+	sprintf(buf,"Server:Web Server\r\n");
+	rio_writen(fd,buf,strlen(buf));
+
+	pipe(pfd);
+	if(fork() == 0){
+		close(pfd[1]);
+		dup2(pfd[0],STDIN_FILENO);
+		dup2(fd,STDOUT_FILENO);
+		execve(filename,emptylist,environ);
+	}
+
+	close(pfd[0]);
+	write(pfd[1],cgiargs,strlen(cgiargs)+1);
+	wait(NULL);
+	close(pfd[1]);
+
+}
+
+
+
