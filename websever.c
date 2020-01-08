@@ -16,15 +16,15 @@ int main(int argc,char **argv)
 	struct sockaddr_in clientaddr;
 
 	if(argc!=2){
-		fprintf(stderr,"usage:%s<port>\n",argc[0]);
+		fprintf(stderr,"usage:%s<port>\n",argv[0]);
 		exit(0);
 	}
-	port = atoi(argc[1]);
+	port = atoi(argv[1]);
 
 	listen_sock=open_listen_sock(port);
 	while(1){
 		clientlen=sizeof(clientaddr);
-		conn_sock=accpt(listen_sock,(SA *)&clientaddr,&clientlen);
+		conn_sock=accept(listen_sock,(SA *)&clientaddr,&clientlen);
 		process_trans(conn_sock);
 		close(conn_sock);
 	}
@@ -45,13 +45,13 @@ void process_trans(int fd)
 		error_request(fd,method,"501","Not Implemented","Web does not implement this method");
 		return;
 	}
-	read_requeshdrs(&rio);
+	read_requesthdrs(&rio);
 
 	static_flag=is_static(uri);
 	if(static_flag)
 		parse_static_uri(uri,filename);
 	else
-		parse_dynamic_uri(uri,filename,cgisrgs);
+		parse_dynamic_uri(uri,filename,cgiargs);
 
 	if(stat(filename,&sbuf)<0){
 		error_request(fd,filename,"404","Not Found","Web could not find this find");
@@ -69,7 +69,7 @@ void process_trans(int fd)
 			error_request(fd,filename,"403","Forbidden","Web could not run the CGI program");
 			return;
 		}
-		feed_static(fd,filename,cgiargs);
+		feed_dynamic(fd,filename,cgiargs);
 	}
 }
 
@@ -151,7 +151,9 @@ void feed_static(int fd,char *filename,int filesize)
 	srcfd =open(filename,O_RDONLY,0);
 	srcp=mmap(0,filesize,PROT_READ,MAP_PRIVATE,srcfd,0);
 	close(srcfd);
-	rio_writen(srcp,filetype);
+	rio_writen(fd,srcp,filesize);
+	munmap(srcp,filesize);
+	
 }
 
 void get_filetype(char *filename,char *filetype)
