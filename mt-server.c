@@ -67,4 +67,13 @@ int init_lxmt_server(lx_bool_t is_nostub,char * phome)
 
     return 0;
 }
-
+int cleanup_lxmt_server()
+{
+    if( g_ctx != NULL)
+    {
+        g_ctx->log.cleanup(&g_ctx->log);     
+        free(&g_ctx); 
+        g_ctx = NULL; 
+    }    
+    return 0;
+}
