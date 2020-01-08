@@ -110,3 +110,29 @@ void read_requesthdrs(rio_t *rp)
 	}
 	return;
 }
+
+void psrse_static_uri(char *uri,char *filename)
+{
+	char *ptr;
+	strcpy(filename,".");
+	strcat(filename,uri);
+	if(uri[strlen(uri)-1] == '/')
+		strcat(filename,"home.html");
+	/*ps*/
+
+}
+
+void parse_dynamic_uri(char *uri,char *filename,char *cgiargs)
+{
+	char *ptr;
+	ptr=index(uri,'?');
+	if(ptr){
+		strcpy(cgiargs,ptr+1);
+		*ptr='\0';
+	}else
+		strcpy(cgiargs,"");
+
+	strcpy(filename,".");
+	strcat(filename,uri);
+}
+
