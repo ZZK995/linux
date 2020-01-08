@@ -99,3 +99,14 @@ void error_request(int fd,char *cause,char *errnum,char *shortmsg,char *descript
 	rio_writen(fd,buf,strlen(body));
 }
 
+void read_requesthdrs(rio_t *rp)
+{
+	char buf[MAXLINE];
+
+	rio_readlineb(rp,buf,MAXLINE);
+	while(strcmp(buf,"\r\n")){
+		printf("%s",buf);
+		rio_readlineb(rp,buf,MAXLINE);
+	}
+	return;
+}
