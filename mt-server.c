@@ -265,3 +265,121 @@ err:
 
     return ret;
 }
+static int send_resp(int fd,lx_bool_t is_nostub, h_parser_ctx * req_ctx)
+{
+    int ret,head_len,contlen = -1, rcode;
+    h_parser_ctx ctx,*pctx;
+    char path[1024],date[64],buff[4096],* uri,*rstr;
+    FILE * resp_fh = NULL,*stub_fh = NULL;
+
+    char * headers[] = {
+       // "Date"          ,"Mon, 26 Jan 2015 08:52:12 GMT",
+        "Content-Type" ,"text/html",
+        "Connection"   ,"Keep-Alive",
+        "Server"       ,"lanxin/spl 1.0",
+        NULL,NULL
+    };
+
+    if( !is_nostub
+        &&(stub_fh = fopen("response.stub","wb")) ==NULL ){
+        g_ctx->log.logerror(&g_ctx->log,"open response.stub file error");
+        ret = -1; goto err;
+    }
+
+    http_set_uri_sep(&ctx,'?','&','=');
+    http_set_memory_msuit(&ctx,malloc,free,http_extend);
+    pctx = &ctx;
+
+    if(http_ctx_init(&ctx,T_RESP,64)){
+        g_ctx->log.logerror(&g_ctx->log,"http_ctx_init error");
+        ret =-1;goto err;
+    }
+
+    if( !(ret = get_browser_time( time(NULL),date,64 ) ) ){
+        g_ctx->log.logerror(&g_ctx->log,"snprintf date error");
+        ret =-1;goto err;
+    }
+
+    uri = http_get_uri(&req_ctx->info);
+    if( uri == NULL || strcmp(uri, "/") == 0)
+        uri = "/index.html";
+    if( (ret = snprintf(path,1024,"%s/%s%s",g_home,g_whome,uri)) <= 0 ){
+        g_ctx->log.logerror(&g_ctx->log,"snprintf path error,ret = %d",ret);
+        ret =-1;goto err;
+    }
+
+    if( (resp_fh = fopen(path, "rb")) == NULL){
+        rcode = 404;
+        rstr = "File Not Found";
+
+        if( (ret = snprintf(path,1024,"%s/%s%s",g_home,g_whome,"/404.html")) <= 0 ){
+            g_ctx->log.logerror(&g_ctx->log,"snprintf path error,ret = %d",ret);
+            ret =-1;goto err;
+        }
+        if( (resp_fh= fopen(path,"rb"))== NULL){
+            g_ctx->log.logerror(&g_ctx->log,"open 404 file error:%s",path);
+            ret =-1;goto err;
+        }
+    }else{
+        rcode = RESP_OK;
+        rstr = NULL;
+        if( fseek(resp_fh,0,SEEK_END)== -1
+            ||(ret = ftell(resp_fh)) == -1){
+            g_ctx->log.logerror(&g_ctx->log,"get file len error");
+            ret = -1; goto err;
+        }
+        rewind(resp_fh);
+        contlen = ret;
+    }
+
+    if( http_set_prot(pctx,P_HTTP_1_1))
+    {
+        g_ctx->log.logerror(&g_ctx->log,"set prot error");
+        ret = -1;goto err;
+    }
+
+    if( http_set_rcode(pctx,rcode,rstr))
+    {
+        g_ctx->log.logerror(&g_ctx->log,"set resp code error");
+        ret = -1;goto err;
+    }
+
+    if(http_set_headers(pctx,headers,contlen )){
+        g_ctx->log.logerror(&g_ctx->log,"set headers error");
+        ret = -1; goto err;
+    }
+
+    if(http_set_header(pctx,"Date",date )){
+        g_ctx->log.logerror(&g_ctx->log,"set headers error");
+        ret = -1; goto err;
+    }
+
+    if((head_len = http_seri_head(&pctx->info,T_RESP,buff,4096)) <= 0){
+        g_ctx->log.logerror(&g_ctx->log,"http_ctx_serihead error");
+        ret = -1;goto err;
+    }
+
+    if(lx_sosend(fd,buff,head_len)!=head_len
+        || (!is_nostub && fwriten(stub_fh,buff,head_len) != head_len)){
+        g_ctx->log.logerror(&g_ctx->log,"write or send  error");
+        ret = -1;goto err;
+    }
+
+    while(resp_fh && (ret = freadn(resp_fh,buff,4096)) > 0 ){
+        if( lx_sosend(fd,buff,ret)!= ret
+            || (!is_nostub && fwriten(stub_fh, buff,ret) != ret)){
+
+            g_ctx->log.logerror(&g_ctx->log,"write or send response  error");
+            ret = -1;goto err;
+        }
+    }
+
+    ret = 0;
+err:
+    http_ctx_cleanup(pctx);
+    if(resp_fh)
+        fclose(resp_fh);
+    if(stub_fh)
+        fclose(stub_fh);
+    return ret;
+}
