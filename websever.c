@@ -110,3 +110,58 @@ void read_requesthdrs(rio_t *rp)
 	}
 	return;
 }
+
+void psrse_static_uri(char *uri,char *filename)
+{
+	char *ptr;
+	strcpy(filename,".");
+	strcat(filename,uri);
+	if(uri[strlen(uri)-1] == '/')
+		strcat(filename,"home.html");
+	/*ps*/
+
+}
+
+void parse_dynamic_uri(char *uri,char *filename,char *cgiargs)
+{
+	char *ptr;
+	ptr=index(uri,'?');
+	if(ptr){
+		strcpy(cgiargs,ptr+1);
+		*ptr='\0';
+	}else
+		strcpy(cgiargs,"");
+
+	strcpy(filename,".");
+	strcat(filename,uri);
+}
+
+void feed_static(int fd,char *filename,int filesize)
+{
+	int srcfd;
+	char *srcp,filetype[MAXLINE],buf[MAXBUF];
+	
+	get_filetype(filename,filetype);
+	sprintf(buf,"HTTP/1.0 200 OK\r\n");
+	sprintf(buf,"%sServer:Web Server\r\n",buf);
+	sprintf(buf,"%sContent-length:%d\r\n",buf,filesize);
+	sprintf(buf,"%s Content-tyoe:%s\r\n\r\n",buf,filetype);
+	rio_writen(fd,buf,strlen(buf));
+
+	srcfd =open(filename,O_RDONLY,0);
+	srcp=mmap(0,filesize,PROT_READ,MAP_PRIVATE,srcfd,0);
+	close(srcfd);
+	rio_writen(srcp,filetype);
+}
+
+void get_filetype(char *filename,char *filetype)
+{
+	if(strstr(filename,".html"))
+		strcpy(filetype,"text/html");
+	else if(strstr(filename,".jpg"))
+		strcpy(filetype,"image/jpeg");
+	else if(strstr(filename,".mpeg"))
+		strcpy(filetype,"video/mpeg");
+	else
+		strcpy(filetype,"text/html");
+}
