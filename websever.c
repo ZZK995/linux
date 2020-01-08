@@ -136,3 +136,22 @@ void parse_dynamic_uri(char *uri,char *filename,char *cgiargs)
 	strcat(filename,uri);
 }
 
+void feed_static(int fd,char *filename,int filesize)
+{
+	int srcfd;
+	char *srcp,filetype[MAXLINE],buf[MAXBUF];
+	
+	get_filetype(filename,filetype);
+	sprintf(buf,"HTTP/1.0 200 OK\r\n");
+	sprintf(buf,"%sServer:Web Server\r\n",buf);
+	sprintf(buf,"%sContent-length:%d\r\n",buf,filesize);
+	sprintf(buf,"%s Content-tyoe:%s\r\n\r\n",buf,filetype);
+	rio_writen(fd,buf,strlen(buf));
+
+	srcfd =open(filename,O_RDONLY,0);
+	srcp=mmap(0,filesize,PROT_READ,MAP_PRIVATE,srcfd,0);
+	close(srcfd);
+	rio_writen(srcp,filetype);
+}
+
+
