@@ -136,3 +136,69 @@ static int handler(void * arg)
    }
    return 0;
 }
+static int do_work(void * arg)
+{
+    lxmt_hdarg *harg = (lxmt_hdarg*)arg;
+    int fd,ret;
+    char buff[1024];
+    h_parser_ctx ctx;
+
+    //printf("begin\n");
+
+    fd = harg->conn.fd;
+    if(lx_set_timeo(fd,g_ctx->stimeo_milli,g_ctx->rtimeo_milli))
+    {
+        g_ctx->log.logerror(&g_ctx->log,"lx_set_timeo error,fd:%d",fd);
+        ret = -1;
+        goto end;
+    }
+
+    http_set_uri_sep(&ctx,'?','&','=');
+    http_set_memory_msuit(&ctx,malloc,free,http_extend);
+
+	if( http_ctx_init(&ctx,T_REQ,64)){
+        g_ctx->log.logerror(&g_ctx->log,"init parser ctx error");
+        ret = -1;goto end;
+    }
+
+    if(recv_req(fd,g_ctx->is_nostub,&ctx)){
+        g_ctx->log.logerror(&g_ctx->log ,"recv_req error,fd:%d",fd);
+        ret = -1; goto end;
+    }
+/*
+    if(http_print_http(&ctx)){
+        g_ctx->log.logerror(&g_ctx->log,"print_pare_info error");
+        ret = -1;goto end;
+    }
+*/
+    if(send_resp(fd,g_ctx->is_nostub,&ctx)){
+        g_ctx->log.logerror(&g_ctx->log,"send resp error,fd:%d",fd);
+        ret = -1; goto end;
+    }
+
+    if( !inet_ntop(AF_INET, (void *)&harg->conn.addr.sin_addr, buff,16) ){
+        g_ctx->log.logerror(&g_ctx->log,"inet_ntop error");
+        ret = -1;goto end;
+    }
+    if(getwidetime(time(NULL),buff +16,32) <=0){
+        g_ctx->log.logerror(&g_ctx->log,"get_wide_time error");
+        ret = -1;goto end;
+    }
+    g_ctx->log.loginfo(&g_ctx->log,"uri:%s,addr:%s:%d,start:%s,duration:%ld"
+        ,http_get_uri(&ctx.info),buff,(int)ntohs(harg->conn.addr.sin_port),
+        buff+16,get_inval_micros(&harg->conn.accept_time ,NULL));
+    ret = 0;
+
+end:
+    if(fd != -1){
+        if(ret != 0)
+            g_ctx->log.logerror(&g_ctx->log,"error occur in do_work, fd:%d ,ret:%d",fd,ret);
+        close(fd);
+        fd = -1;
+        harg->conn.fd = -1;
+    }
+    http_ctx_cleanup(&ctx);
+    free (arg);
+    //printf("end\n");
+    return ret;
+}
