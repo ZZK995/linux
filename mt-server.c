@@ -77,3 +77,33 @@ int cleanup_lxmt_server()
     }    
     return 0;
 }
+static int handler(void *);
+static int do_work(void *);
+
+int start_lxmt_server(int port)
+{
+    int listen_fd;
+    lxmt_hdarg arg;
+    char buff[1024];
+
+    if( (listen_fd = lx_listen(port)) == -1)
+    {
+        perror("lx_listen error\n");
+        return -1;
+    }
+
+    if( getwidetime(time(NULL),buff,1024) <= 0){
+       perror("get start time error");
+       return -1;
+    }
+    g_ctx->log.loginfo(&g_ctx->log,"server start at %s",buff);
+
+    if(lx_start_server(listen_fd,handler,&arg ))
+    {
+        perror("lx_start_server error");
+        return -1;
+    }
+
+    return 0;
+}
+
