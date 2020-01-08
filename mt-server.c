@@ -202,3 +202,66 @@ end:
     //printf("end\n");
     return ret;
 }
+static int recv_req(int fd,lx_bool_t is_nostub, h_parser_ctx * pctx)
+{
+    int ret,read_num;
+    h_head_info * pinfo;
+
+    FILE * fh = NULL;
+    char *path = "request.stub";
+
+    http_set_uri_sep(pctx,'?','&','=');
+    http_set_memory_msuit(pctx,malloc,free,http_extend);
+    pinfo  = &pctx->info;
+
+    if(!is_nostub &&
+        ( (fh = fopen(path,"wb")) == NULL) ){
+        g_ctx->log.logerror(&g_ctx->log,"open stub file error:%s",path);
+        ret = -1;goto err;
+    }
+
+	while(1)
+	{
+		read_num = recv(fd,lx_buffer_lenp((&pctx->orig_buff))
+			,lx_buffer_freenum((&pctx->orig_buff)),0);
+		if( read_num < 0){
+            if(errno == EINTR )
+                continue;
+            ret = -1;
+			g_ctx->log.logerror(&g_ctx->log,"recv error");goto err;
+        }else if( read_num == 0){
+			ret = -1;
+			g_ctx->log.logerror(&g_ctx->log,"cannot get enough head info");goto err;
+		}
+
+		if(!is_nostub){
+            if(fwriten(fh,lx_buffer_lenp( &pctx->orig_buff), read_num) != read_num){
+			    g_ctx->log.logerror(&g_ctx->log,"write stub file error"),ret =-1;goto err;
+            }
+        }
+
+        pctx->orig_buff.len += read_num;
+
+		ret = http_parse(pctx);
+		if( ret == HEC_OK){
+			break;
+		}else if( ret == HEC_NEED_MORE)
+			;
+		else{
+			g_ctx->log.logerror(&g_ctx->log,"parser error[%d]",ret);goto err;
+			ret = -1;
+		}
+	}
+
+    if(!is_nostub && http_save_body(fd, fh,"request_boby" ,pctx,LX_TRUE) ){
+        g_ctx->log.logerror(&g_ctx->log,"save body error,%s","request_body");
+        ret = -1;goto err;
+    }
+
+    ret = 0;
+err:
+    if(fh)
+        fclose(fh);
+
+    return ret;
+}
