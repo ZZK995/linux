@@ -106,4 +106,33 @@ int start_lxmt_server(int port)
 
     return 0;
 }
+static int recv_req(int fd, lx_bool_t is_nostub,h_parser_ctx * pctx);
+static int send_resp(int fd, lx_bool_t is_nostub,h_parser_ctx * pctx);
 
+static int handler(void * arg)
+{
+   int ret,qflag = 0;
+   static int count = 0;
+   pthread_t tid;
+    
+   lxmt_hdarg*  new_arg ;
+   while( ( new_arg= (lxmt_hdarg*)malloc( sizeof(lxmt_hdarg)) )== NULL){
+        g_ctx->log.logerror( &g_ctx->log, "malloc in handler error[%d:%s]",ret, strerror(ret));
+        sleep(1);
+   }
+   memcpy(new_arg,arg,sizeof( lxmt_hdarg));
+
+   while( ret = pthread_create(&tid,NULL,(void * (*)(void *))do_work,new_arg)){
+        g_ctx->log.logwarn( &g_ctx->log, "pthread_create error[%d:%s]",ret, strerror(ret));
+        sleep(1);
+   }
+   if( ret = pthread_detach(tid)){
+        g_ctx->log.logerror( &g_ctx->log, "pthread_detach error[%d:%s]",ret, strerror(ret));
+   }
+
+   if(qflag  && count++ >= 3){
+       sleep(30);
+       return 1;
+   }
+   return 0;
+}
