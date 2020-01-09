@@ -8,7 +8,6 @@ int main(void) {
     scanf("%d&%d", &m, &n);
     
     sprintf(content, "Multiplication: ");
-    sprintf(content, "%sTHE Internet addition portal.\r\n<p>", content);
     sprintf(content, "%sThe answer is: %d * %d = %d\r\n<p>", 
 	    content, m, n, m * n);
     sprintf(content, "%sThanks!\r\n", content);
